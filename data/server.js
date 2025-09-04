@@ -23,7 +23,7 @@ app.post('/api/chat', async (req, res) => {
             },
             {
                 headers: {
-                    'Authorization': 'Bearer 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',
+                    'Authorization': 'Bearer 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',
                     'Content-Type': 'application/json'
                 }
             }
