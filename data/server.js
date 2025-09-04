@@ -1,136 +1,138 @@
-// خادم Node.js بسيط لربط الموقع مع OpenAI API
+require('dotenv').config();
+
 const express = require('express');
+const path = require('path');
 const bodyParser = require('body-parser');
 const axios = require('axios');
-const cors = require('cors');
 
 const app = express();
 const PORT = 3000;
 
-app.use(cors());
+// تقديم الملفات الثابتة من مجلد public
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
 
-// نقطة نهاية المحادثة الذكية باستخدام Hugging Face Mistral-7B-Instruct
+// نقطة نهاية للمحادثة الذكية (OpenAI)
 app.post('/api/chat', async (req, res) => {
-    const userMessage = req.body.message;
-    if (!userMessage) return res.status(400).json({ error: 'يرجى إرسال رسالة.' });
-
-    try {
-        const response = await axios.post(
-            'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1',
-            {
-                inputs: userMessage
-            },
-            {
-                headers: {
-                    'Authorization': 'Bearer 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',
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-        // الرد قد يكون في generated_text أو داخل مصفوفة
-        const aiReply = response.data?.generated_text || response.data?.[0]?.generated_text || 'لا يوجد رد.';
-        res.json({ reply: aiReply });
-    } catch (error) {
-        res.status(500).json({ error: 'حدث خطأ أثناء الاتصال بـ Hugging Face.' });
-    }
+  const { message} = req.body;
+  try {
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: message}]
+},
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+}
+}
+);
+    res.json({ reply: response.data.choices[0].message.content});
+} catch (err) {
+    res.status(500).json({ error: 'خطأ في الاتصال بـ OpenAI'});
+}
 });
 
-// نقطة نهاية توليد النصوص
+// نقطة نهاية توليد النصوص (OpenAI)
 app.post('/api/textgen', async (req, res) => {
-    const prompt = req.body.prompt;
-    if (!prompt) return res.status(400).json({ error: 'يرجى إرسال نص البداية.' });
-
-    try {
-        const response = await axios.post(
-            'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1',
-            { inputs: prompt },
-            {
-                headers: {
-                    'Authorization': 'Bearer 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',
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-        const result = response.data?.generated_text || response.data?.[0]?.generated_text || 'لا يوجد نص.';
-        res.json({ result });
-    } catch (error) {
-        res.status(500).json({ error: 'حدث خطأ أثناء توليد النص.' });
-    }
+  const { prompt} = req.body;
+  try {
+    const response = await axios.post(
+      'https://api.openai.com/v1/completions',
+      {
+        model: 'text-davinci-003',
+        prompt,
+        max_tokens: 200
+},
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+}
+}
+);
+    res.json({ result: response.data.choices[0].text});
+} catch (err) {
+    res.status(500).json({ error: 'خطأ في توليد النص'});
+}
 });
 
-// نقطة نهاية الترجمة الذكية (ترجمة عبر النموذج نفسه)
+// نقطة نهاية الترجمة الذكية (OpenAI)
 app.post('/api/translate', async (req, res) => {
-    const { text, target } = req.body;
-    if (!text || !target) return res.status(400).json({ error: 'يرجى إرسال النص واللغة المستهدفة.' });
-
-    try {
-        const prompt = `ترجم النص التالي إلى ${target}:\n${text}`;
-        const response = await axios.post(
-            'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1',
-            { inputs: prompt },
-            {
-                headers: {
-                    'Authorization': 'Bearer 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',
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-        const result = response.data?.generated_text || response.data?.[0]?.generated_text || 'لا يوجد ترجمة.';
-        res.json({ result });
-    } catch (error) {
-        res.status(500).json({ error: 'حدث خطأ أثناء الترجمة.' });
-    }
+  const { text, target} = req.body;
+  try {
+    const prompt = `ترجم النص التالي إلى ${target}:\n${text}`;
+    const response = await axios.post(
+      'https://api.openai.com/v1/completions',
+      {
+        model: 'text-davinci-003',
+        prompt,
+        max_tokens: 200
+},
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+}
+}
+);
+    res.json({ result: response.data.choices[0].text});
+} catch (err) {
+    res.status(500).json({ error: 'خطأ في الترجمة'});
+}
 });
 
-// نقطة نهاية توليد الصور (مثال باستخدام Stable Diffusion)
+// نقطة نهاية توليد الصور (OpenAI DALL·E)
 app.post('/api/imagegen', async (req, res) => {
-    const prompt = req.body.prompt;
-    if (!prompt) return res.status(400).json({ error: 'يرجى إرسال وصف الصورة.' });
-
-    try {
-        const response = await axios.post(
-            'https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2',
-            { inputs: prompt },
-            {
-                headers: {
-                    'Authorization': 'Bearer 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',
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-        // الصورة ترجع غالباً على شكل base64 أو رابط
-        const image = response.data?.[0]?.generated_image || response.data?.generated_image || null;
-        res.json({ image });
-    } catch (error) {
-        res.status(500).json({ error: 'حدث خطأ أثناء توليد الصورة.' });
-    }
+  const { prompt} = req.body;
+  try {
+    const response = await axios.post(
+      'https://api.openai.com/v1/images/generations',
+      {
+        prompt,
+        n: 1,
+        size: '512x512'
+},
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+}
+}
+);
+    res.json({ url: response.data.data[0].url});
+} catch (err) {
+    res.status(500).json({ error: 'خطأ في توليد الصورة'});
+}
 });
 
 // نقطة نهاية تحليل البيانات (نموذج أولي)
 app.post('/api/dataanalysis', async (req, res) => {
-    const data = req.body.data;
-    if (!data) return res.status(400).json({ error: 'يرجى إرسال البيانات.' });
-
-    try {
-        const prompt = `حلل البيانات التالية وأعطني ملخصاً:\n${data}`;
-        const response = await axios.post(
-            'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1',
-            { inputs: prompt },
-            {
-                headers: {
-                    'Authorization': 'Bearer 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',
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-        const result = response.data?.generated_text || response.data?.[0]?.generated_text || 'لا يوجد تحليل.';
-        res.json({ result });
-    } catch (error) {
-        res.status(500).json({ error: 'حدث خطأ أثناء تحليل البيانات.' });
-    }
+  res.json({ result: 'تحليل البيانات قادم قريبًا.'});
 });
 
+// نقطة نهاية باستخدام Hugging Face API (مثال)
+app.post('/api/huggingface', async (req, res) => {
+  const { input} = req.body;
+  try {
+    const response = await axios.post(
+      'https://api-inference.huggingface.co/models/gpt2',
+      { inputs: input},
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+          'Content-Type': 'application/json'
+}
+}
+);
+    res.json({ result: response.data});
+} catch (err) {res.status(500).json({ error: 'خطأ في الاتصال بـ Hugging Face'});
+}
+});
+
+// تشغيل الخادم
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`الخادم يعمل على http://localhost:${PORT}`);
 });
