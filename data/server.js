@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
@@ -8,31 +9,35 @@ const axios = require('axios');
 const app = express();
 const PORT = 3000;
 
-// تقديم الملفات الثابتة من مجلد public
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'Chat_GPT-main')));
 app.use(bodyParser.json());
 
-// نقطة نهاية للمحادثة الذكية (OpenAI)
+// نقطة نهاية المحادثة باستخدام Hugging Face
 app.post('/api/chat', async (req, res) => {
   const { message} = req.body;
   try {
     const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      {
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: message}]
-},
+      'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium',
+      { inputs: message},
       {
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
           'Content-Type': 'application/json'
 }
 }
 );
-    res.json({ reply: response.data.choices[0].message.content});
+
+    // الرد من النموذج
+    const reply = response.data.generated_text || 'لم يتم الحصول على رد.';
+    res.json({ reply});
 } catch (err) {
-    res.status(500).json({ error: 'خطأ في الاتصال بـ OpenAI'});
+    console.error('خطأ في الاتصال بـ Hugging Face:', err.message);
+    res.status(500).json({ error: 'خطأ في الاتصال بالخادم.'});
 }
+});
+
+app.listen(PORT, () => {
+  console.log(`الخادم يعمل على http://localhost:${PORT}`);
 });
 
 // نقطة نهاية توليد النصوص (OpenAI)
